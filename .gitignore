@@ -4,5 +4,4 @@ venv**/
 ENV/
 .vscode/
 .env**
-**/.gitkeep
 __pycache__/
