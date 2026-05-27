@@ -21,5 +21,6 @@ La idea es que todo el flujo se ejecute automáticamente con el botón de GitHub
 4. Evaluación de modelos
 5. Generación de evidencias
 6. Generación de tag con release
+7. Compilación de la imagen Docker
 
 ## Resultados y conclusiones
