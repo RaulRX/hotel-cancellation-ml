@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import sys; sys.path.insert\\(0,'.'\\); from api.main import app; print\\('OK', len\\(app.routes\\), 'routes'\\)\")"
+    ]
+  }
+}
