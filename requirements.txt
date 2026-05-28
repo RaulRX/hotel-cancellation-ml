@@ -58,7 +58,7 @@ nbformat==5.10.4
 nest-asyncio==1.6.0
 nltk==3.9.1
 numpy==1.26.4
-nvidia-nccl-cu12==2.29.7
+#nvidia-nccl-cu12==2.29.7
 opt-einsum==3.4.0
 optree==0.16.0
 packaging==25.0
@@ -103,7 +103,7 @@ statsmodels==0.14.6
 tensorboard==2.19.0
 tensorboard-data-server==0.7.2
 tensorflow==2.19.0
-tensorflow-io-gcs-filesystem==0.37.1
+tensorflow-io-gcs-filesystem
 termcolor==3.1.0
 thinc==8.3.4
 threadpoolctl==3.6.0
