@@ -51,7 +51,7 @@ pip install -r requirements.txt
 ## Run
 
 ```bash
-uvicorn api.main:app --reload
+fastapi dev ./api/main.py
 ```
 
 Open the interactive docs at <http://localhost:8000/docs>.
