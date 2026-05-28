@@ -1,12 +1,14 @@
 """FastAPI entrypoint.
 
 Run with:
-    uvicorn api.main:app --reload
+    fastapi dev ./api/main.py
 
 Interactive docs:
     http://localhost:8000/docs
 """
 from __future__ import annotations
+
+from api.core.errors import logger
 
 import os
 
@@ -30,6 +32,11 @@ def create_app() -> FastAPI:
         contact={"name": "Hotel Cancellation ML project"},
     )
     register_exception_handlers(app)
+
+    @app.get("/")
+    def root():
+        logger.info("Acceso a la raíz de la API.")
+        return {"message": "This is the Hotel Cancellation ML API root. Use /docs for more information."}
 
     app.include_router(health.router)
     app.include_router(models.router)
