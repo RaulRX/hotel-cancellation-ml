@@ -1,25 +1,16 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 
 from src.trainer import train_all
 
 router = APIRouter(prefix="/train", tags=["train"])
 
 
-class TrainRequest(BaseModel):
-    dataset_path: str | None = None
-    primary_metric: str | None = None
-
-
 @router.post("")
-def train(request: TrainRequest):
+def train():
     try:
-        result = train_all(
-            dataset_path=request.dataset_path,
-            primary_metric=request.primary_metric,
-        )
-        return result
+        train_all()
+        return {"status": "success", "message": "Modelo entrenado y guardado en archivo pkl."}
     except FileNotFoundError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

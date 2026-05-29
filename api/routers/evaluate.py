@@ -15,6 +15,6 @@ def evaluate(request: EvaluateRequest):
     try:
         return evaluate_all(dataset_path=request.dataset_path)
     except FileNotFoundError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
