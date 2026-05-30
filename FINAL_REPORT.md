@@ -67,6 +67,10 @@ LightGBM supera a los otros dos modelos por varias razones inherentes a su arqui
 - **`company`** fue eliminada del conjunto de features por presentar un **94% de valores nulos**, lo que impide extraer información fiable. Esto supone la pérdida potencial de señal relacionada con reservas corporativas.
 - Se detectaron **valores negativos y extremos en `adr`** (precio promedio por noche), corregidos mediante ajuste al **percentil 99**. Este enfoque elimina outliers pero puede enmascarar casos reales atípicos con precios legítimamente altos o bajos.
 - El dataset contenía una **gran proporción de filas duplicadas**, lo que podría amplificar el desbalance de clases e introducir sesgo en el entrenamiento si no se eliminan antes de la división train/test.
+  - **Patrón no aleatorio:** los duplicados se concentran en reservas corporativas con `company = 281.0` y `adr = 36.00`, lo que apunta a un error sistemático de ingesta por parte de una agencia o empresa concreta, no a ruido aleatorio.
+  - **Impacto en el balance de clases:** casi todos los duplicados corresponden a reservas no canceladas (`is_canceled = 0`), por lo que su eliminación reduce proporcionalmente la clase mayoritaria y mejora ligeramente el balance de clases.
+  - **Riesgo de data leakage entre train y test:** al haber filas 100% idénticas, si no se eliminan antes de la división, una misma reserva puede acabar simultáneamente en entrenamiento y test, inflando artificialmente las métricas de evaluación.
+
 
 #### Desbalance de clases
 
