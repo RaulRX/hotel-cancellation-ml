@@ -2,3 +2,5 @@
 env-eval/
 venv
 .claude
+__pycache__/
+**.csv
