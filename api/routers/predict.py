@@ -1,11 +1,9 @@
-import joblib
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/predict", tags=["predict"])
+from src.predict import predict_records
 
-MODEL_PATH = "models/best_model.pkl"
+router = APIRouter(prefix="/predict", tags=["predict"])
 
 
 class BookingRecord(BaseModel):
@@ -28,6 +26,8 @@ class BookingRecord(BaseModel):
     previous_cancellations: int
     previous_bookings_not_canceled: int
     reserved_room_type: str
+    assigned_room_type: str
+    booking_changes: int
     deposit_type: str
     agent: str | None = None
     company: str | None = None
@@ -45,16 +45,9 @@ class PredictRequest(BaseModel):
 @router.post("")
 def predict(request: PredictRequest):
     try:
-        pipeline = joblib.load(MODEL_PATH)
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=400,
-            detail="El modelo no ha sido entrenado aún. Llama primero a POST /train.",
-        )
-
-    try:
-        data = [record.model_dump() for record in request.records]
-        predictions = pipeline.predict(data)
-        return {"predictions": predictions.tolist()}
+        records = [record.model_dump() for record in request.records]
+        return predict_records(records)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
