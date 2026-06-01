@@ -5,10 +5,7 @@ ENV/
 .vscode/
 .env**
 __pycache__/
-<<<<<<< HEAD
 **.csv
 models/**
 outputs/
-=======
 .claude
->>>>>>> main

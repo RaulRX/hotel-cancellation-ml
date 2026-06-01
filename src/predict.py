@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import json
 import logging
 
@@ -44,3 +45,5 @@ def predict_dataset() -> dict:
     logger.info("Predictions persisted to %s", PREDICTIONS_PATH)
 
     return {model: {"predictions": v["predictions"]} for model, v in results.items()}
+=======
+>>>>>>> main

@@ -62,8 +62,6 @@ def train_models(hyperparams: dict[str, dict] | None = None) -> dict:
     """
     hyperparams = hyperparams or {}
 
-    MODELS_TESTS_DIR.mkdir(parents=True, exist_ok=True)
-
     if any(MODELS_TESTS_DIR.glob("*.pkl")):
         logger.info("Existing models found — clearing before retraining.")
         _clear_existing_models()
