@@ -16,7 +16,8 @@ env/
 notebooks/
 
 # Project data (no necesario en imagen)
-data/raw/
+data/raw/*
+!data/raw/dataset.csv
 data/processed/
 
 # Outputs y modelos de test

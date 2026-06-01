@@ -2,11 +2,16 @@ version: '3.8'
 
 services:
   hotel-cancellation-predictor:
+    container_name: cancellation-predictor
     build:
       context: .
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./outputs:/app/outputs
     networks:
       - bridge
 

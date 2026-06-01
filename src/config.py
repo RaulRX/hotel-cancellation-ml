@@ -10,6 +10,7 @@ MODELS_TESTS_DIR = MODELS_DIR / "tests"
 BEST_MODEL_PATH = MODELS_DIR / "best_model.pkl"
 
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
+PREDICTIONS_PATH = OUTPUTS_DIR / "predictions.json"
 
 TARGET_COLUMN = "is_canceled"
 RANDOM_STATE = 11
