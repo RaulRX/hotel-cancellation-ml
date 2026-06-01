@@ -4,3 +4,4 @@ venv
 .claude
 __pycache__/
 **.csv
+models/**
