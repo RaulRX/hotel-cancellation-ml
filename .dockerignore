@@ -1,0 +1,32 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+.env
+.venv
+venv/
+env/
+
+# IDE
+.vscode
+
+# Notebooks (desarrollo local)
+notebooks/
+
+# Project data (no necesario en imagen)
+data/raw/*
+!data/raw/dataset.csv
+data/processed/
+
+# Outputs y modelos de test
+outputs/
+models/tests/
+
+*.md
+
+# Docker
+docker-compose.yaml
+Dockerfile
+.dockerignore

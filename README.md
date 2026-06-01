@@ -49,28 +49,37 @@ hotel-cancellation-ml/
 ├── requirements.txt            # Dependencias del proyecto
 ├── README.md                   # Documentación principal
 ├── FINAL_REPORT.md             # Informe final (EDA, diseño, resultados, reflexión)
+├── Dockerfile                  # Imagen Docker de la aplicación
+├── docker-compose.yaml         # Orquestación del contenedor con volúmenes
 │
 ├── data/
 │   ├── raw/                    # Dataset original sin modificar (dataset.csv)
 │   └── processed/              # Datos tras limpieza y transformación
 │
 ├── models/
-│   └── tests/                  # Modelos entrenados serializados (.pkl)
+│   ├── best_model.pkl          # Mejor modelo serializado (generado por /evaluate)
+│   └── tests/                  # Modelos candidatos serializados tras /train
 │
 ├── notebooks/
 │   ├── exploration/            # Notebooks de análisis exploratorio inicial
 │   └── final/                  # Notebooks finales con resultados y comparativa
 │
-├── outputs/                    # Gráficos y evidencias generados (PNG, HTML)
+├── outputs/                    # Gráficos, métricas y predicciones generados
 │
 └── src/                        # Código fuente del pipeline
     ├── __init__.py
     ├── config.py               # Parámetros y configuración global
     ├── data_loader.py          # Carga y validación del dataset
-    ├── preprocess_data.py      # Limpieza y transformación de datos
-    ├── trainer.py              # Entrenamiento y comparación de modelos
+    ├── preprocess_data.py      # Limpieza, transformación y constructores de pipelines
+    ├── trainer.py              # Entrenamiento de los modelos candidatos
     ├── evaluator.py            # Métricas, visualizaciones y selección del mejor modelo
-    └── predict.py              # Inferencia con el modelo seleccionado
+    ├── predict.py              # Inferencia batch con el modelo seleccionado
+    └── api/                    # API REST (FastAPI)
+        ├── main.py             # Entrada de la aplicación y registro de routers
+        └── routers/
+            ├── train.py        # Router POST /train
+            ├── evaluate.py     # Router POST /evaluate
+            └── predict.py      # Router POST /predict
 ```
 
 ---
@@ -98,10 +107,11 @@ El detalle completo de versiones se encuentra en `requirements.txt`.
 
 ## Instrucciones para ejecutar el proyecto
 
-### Opción 1 — Ejecución local (entorno virtual)
+### Opción 1 — Ejecución vía CLI (pipeline completo)
 
-> **Requerido por el entorno de evaluación.** Asegúrate de tener Python 3.11 instalado.
+> Asegúrate de tener Python 3.11 instalado.
 
+Un único comando ejecuta el pipeline de extremo a extremo: reprocesa el dato crudo, entrena todos los modelos, los evalúa, selecciona el ganador por F1-score y escribe `models/best_model.pkl`.
 ```bash
 # 1. Clonar el repositorio
 git clone https://github.com/RaulRX/hotel-cancellation-ml.git
@@ -119,18 +129,51 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # 4. Ejecutar el pipeline completo
-python -m src.data_loader        # Carga y validación del dataset
-python -m src.preprocess_data    # Limpieza y preprocesamiento
-python -m src.trainer            # Entrenamiento de los 5 modelos
-python -m src.evaluator          # Evaluación, métricas y selección del mejor modelo
-python -m src.predict            # Inferencia con el modelo seleccionado
+python -m src.trainer
 ```
 
-Los artefactos generados (modelos serializados, gráficos, reportes) quedan en `models/` y `outputs/`.
+Al terminar, la consola imprime una tabla comparativa de métricas con el modelo ganador marcado con `(*)`. Los artefactos quedan en `models/` y `outputs/`.
 
 ---
 
-### Opción 2 — Ejecución vía GitHub Actions
+### Opción 2 — Ejecución vía API local (FastAPI)
+
+Mismos pasos de instalación que la Opción 1. En lugar de lanzar el pipeline directamente, arranca el servidor y controla cada fase mediante llamadas HTTP.
+
+```bash
+# Arrancar el servidor
+uvicorn src.api.main:app --reload --port 8000
+```
+
+Documentación interactiva disponible en `http://localhost:8000/docs` (Swagger UI).
+
+El flujo de llamadas es: **`POST /train` → `POST /predict` → `POST /evaluate`** (ver sección [Endpoints de la API](#endpoints-de-la-api)).
+
+---
+
+### Opción 3 — Ejecución con Docker Compose
+
+> Requiere Docker y Docker Compose instalados.
+
+```bash
+# 1. Clonar el repositorio
+git clone https://github.com/RaulRX/hotel-cancellation-ml.git
+cd hotel-cancellation-ml
+
+# 2. Construir la imagen y levantar el contenedor
+docker compose up --build
+```
+
+El servidor queda disponible en `http://localhost:8000`. Los directorios `data/`, `models/` y `outputs/` se montan como volúmenes, por lo que los artefactos persisten en el host tras apagar el contenedor.
+
+```bash
+# Parar y eliminar el contenedor
+docker compose down
+```
+
+---
+
+### Opción 4 — Ejecución vía GitHub Actions
 
 El flujo completo está automatizado mediante un workflow de GitHub Actions. Los pasos que ejecuta:
 
@@ -141,44 +184,58 @@ El flujo completo está automatizado mediante un workflow de GitHub Actions. Los
 5. Generación de evidencias
 6. Generación de tag con release
 
-Para lanzarlo, accede a la pestaña **Actions** del repositorio y ejecuta el workflow `[TODO: nombre del workflow]`.
+Para lanzarlo, accede a la pestaña **Actions** del repositorio y ejecuta el workflow correspondiente.
 
 ---
 
-### Opción 3 — Ejecución vía API FastAPI (bonus)
-
-La API (`Hotel Cancellation ML API v0.1.0`) expone los endpoints principales del pipeline. Documentación interactiva disponible en `http://localhost:8000/docs` (Swagger UI) una vez arrancado el servidor.
-
-```bash
-# Arrancar el servidor
-uvicorn api.main:app --reload --port 8000
-```
-
-#### Endpoints
+### Endpoints de la API
 
 | Endpoint | Método | Body | Descripción |
 |---|---|---|---|
-| `/train` | `POST` | Empty | Entrena el modelo y lo guarda en `models/best_model.pkl` |
-| `/predict` | `POST` | `features` | Carga el `.pkl` y devuelve predicciones para las features recibidas |
-| `/evaluate` | `POST` | `dataset_path` (opcional) | Evalúa el modelo entrenado con el dataset en disco |
+| `POST /train` | `POST` | JSON opcional con `hyperparams` | Entrena todos los modelos candidatos y los serializa en `models/tests/` |
+| `POST /evaluate` | `POST` | — | Evalúa los modelos entrenados, genera métricas y selecciona el mejor en `models/best_model.pkl` |
+| `POST /predict` | `POST` | — | Ejecuta inferencia batch con el mejor modelo sobre el dataset y guarda resultados en `outputs/predictions.json` |
 
-El flujo esperado es: **`/train` → `/predict` → `/evaluate`**.
+**Flujo esperado**: **`POST /train` → `POST /evaluate` → `POST /predict`**
 
 ---
 
 **`POST /train`**
 
-No requiere cuerpo. Lee el CSV del dataset local, entrena el pipeline completo y serializa el mejor modelo en `models/best_model.pkl`.
+Carga el dataset, limpia los datos (o reutiliza los datos preprocesados si ya existen) y entrena todos los modelos candidatos. Los pipelines serializados (preprocesado + modelo) se guardan en `models/tests/`. Permite pasar hiperparámetros opcionales por modelo.
 
 ```bash
+# Sin hiperparámetros (usa los valores por defecto)
 curl -X POST http://localhost:8000/train
+
+# Con hiperparámetros personalizados
+curl -X POST http://localhost:8000/train \
+  -H "Content-Type: application/json" \
+  -d '{
+    "hyperparams": {
+      "lightgbm": {"num_leaves": 80, "n_estimators": 500},
+      "decision_tree": {"max_depth": 6}
+    }
+  }'
+```
+
+Body (todos los campos son opcionales):
+```json
+{
+  "hyperparams": {
+    "logistic_regression": {},
+    "decision_tree": {"max_depth": 6},
+    "lightgbm": {"num_leaves": 80, "n_estimators": 500}
+  }
+}
 ```
 
 Respuesta exitosa (`200`):
 ```json
 {
   "status": "success",
-  "message": "Modelo entrenado y guardado en archivo pkl."
+  "models_trained": ["logistic_regression", "decision_tree", "lightgbm"],
+  "models_dir": "models/tests"
 }
 ```
 
@@ -186,74 +243,51 @@ Errores: `404` si no se encuentra el CSV, `500` para cualquier otro error.
 
 ---
 
-**`POST /predict`**
+**`POST /evaluate`**
 
-Recibe una o varias reservas con sus datos originales (tal como llegan en el momento de la reserva, sin data leakage) y devuelve la predicción de cancelación. Carga internamente el Pipeline completo serializado en `models/best_model.pkl` (preprocesado + modelo).
+Evalúa todos los modelos guardados en `models/tests/`, compara sus métricas (F1-score como métrica principal), genera visualizaciones en `outputs/` y copia el mejor modelo a `models/best_model.pkl`.
 
-Los campos excluidos respecto al dataset original son los que solo se conocen _después_ de la reserva: `reservation_status`, `reservation_status_date`, `assigned_room_type`, `booking_changes` e `is_canceled`.
+```bash
+curl -X POST http://localhost:8000/evaluate
+```
 
+No requiere cuerpo. Llama internamente a `src.evaluator.evaluate_all`.
+
+Respuesta exitosa (`200`) — ejemplo:
 ```json
 {
-  "records": [
-    {
-      "hotel": "City Hotel",
-      "lead_time": 120,
-      "arrival_date_year": 2025,
-      "arrival_date_month": "July",
-      "arrival_date_week_number": 27,
-      "arrival_date_day_of_month": 1,
-      "stays_in_weekend_nights": 1,
-      "stays_in_week_nights": 3,
-      "adults": 2,
-      "children": 0,
-      "babies": 0,
-      "meal": "BB",
-      "country": "ESP",
-      "market_segment": "Online TA",
-      "distribution_channel": "TA/TO",
-      "is_repeated_guest": 0,
-      "previous_cancellations": 0,
-      "previous_bookings_not_canceled": 0,
-      "reserved_room_type": "A",
-      "deposit_type": "No Deposit",
-      "agent": "9",
-      "company": null,
-      "days_in_waiting_list": 0,
-      "customer_type": "Transient",
-      "adr": 150.5,
-      "required_car_parking_spaces": 0,
-      "total_of_special_requests": 1
-    }
-  ]
+  "best_model": "lightgbm",
+  "metrics": {
+    "logistic_regression": {"accuracy": 0.80, "f1": 0.78, "roc_auc": 0.86},
+    "decision_tree":        {"accuracy": 0.83, "f1": 0.81, "roc_auc": 0.88},
+    "lightgbm":             {"accuracy": 0.89, "f1": 0.87, "roc_auc": 0.95}
+  }
 }
 ```
+
+Errores: `404` si no hay modelos entrenados, `500` para cualquier otro error.
+
+---
+
+**`POST /predict`**
+
+Carga el mejor modelo serializado (`models/best_model.pkl`) y ejecuta inferencia batch sobre el dataset. Las predicciones se persisten en `outputs/predictions.json`.
+
+```bash
+curl -X POST http://localhost:8000/predict
+```
+
+No requiere cuerpo. La ejecución es asíncrona internamente para no bloquear el event loop.
 
 Respuesta exitosa (`200`):
 ```json
 {
-  "predictions": [0]
+  "status": "ok",
+  "message": "Predictions saved to outputs/predictions.json"
 }
 ```
 
-`0` = no cancela, `1` = cancela.
-
-Errores: `400` si el modelo no ha sido entrenado aún, `500` para errores de inferencia.
-
----
-
-**`POST /evaluate`**
-
-Evalúa el modelo entrenado contra el dataset en disco. Llama internamente a `src.evaluator.evaluate_all`.
-
-```json
-{
-  "dataset_path": "data/raw/dataset.csv"
-}
-```
-
-El campo `dataset_path` es opcional — si se omite, usa la ruta por defecto configurada en el proyecto.
-
-Errores: `404` si no se encuentra el dataset, `500` para cualquier otro error.
+Errores: `404` si no existe `best_model.pkl` (ejecuta `/evaluate` primero), `500` para errores de inferencia.
 
 ---
 
