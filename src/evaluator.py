@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import json
 import logging
 from pathlib import Path
@@ -164,5 +163,3 @@ def evaluate_all() -> list[dict]:
             results.items(), key=lambda kv: kv[1][PRIMARY_METRIC], reverse=True
         )
     ]
-=======
->>>>>>> main

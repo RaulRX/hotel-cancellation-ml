@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -17,5 +16,3 @@ TARGET_COLUMN = "is_canceled"
 RANDOM_STATE = 11
 TEST_SIZE = 0.2
 PRIMARY_METRIC = "f1"
-=======
->>>>>>> main

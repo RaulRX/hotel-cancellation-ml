@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import logging
 
 import pandas as pd
@@ -29,5 +28,3 @@ def load_processed_data(path=PROCESSED_DATA_PATH) -> pd.DataFrame:
         raise FileNotFoundError(f"Processed dataset not found at {path}. Run training first.")
     logger.info("Loading processed data from %s", path)
     return pd.read_csv(path)
-=======
->>>>>>> main

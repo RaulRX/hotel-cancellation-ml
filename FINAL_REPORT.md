@@ -49,20 +49,13 @@ El sistema está compuesto por dos capas: una capa de lógica de negocio (`src/`
 | `preprocess_data.py` | Limpieza del dataset (duplicados, filas incoherentes) y construcción de los `Pipeline` de sklearn — uno por modelo — que encapsulan todos los transformadores y el estimador. |
 | `trainer.py` | Dos puntos de entrada: `train_models()` para uso desde la API y `train_all()` para uso desde CLI. Orquesta la preparación de datos, el entrenamiento y la persistencia de los modelos. |
 | `evaluator.py` | Carga los modelos guardados, calcula métricas sobre el conjunto de test, genera gráficas de salida (ROC, matriz de confusión, importancia de variables) y devuelve la tabla comparativa. |
-<<<<<<< HEAD
 | `predict.py` | `predict_dataset()` carga el mejor modelo desde disco, ejecuta inferencia batch sobre el dataset procesado y persiste las predicciones en `outputs/predictions.json`. |
 
 #### Capa `src/api/` — exposición HTTP
-=======
-| `predict.py` | `make_predictions()` ejecuta inferencia en memoria; `predict_records()` carga un modelo desde disco y lo expone para la API. |
-
-#### Capa `api/` — exposición HTTP
->>>>>>> main
 
 | Script | Responsabilidad |
 |---|---|
 | `main.py` | Crea la aplicación FastAPI y registra los tres routers. |
-<<<<<<< HEAD
 | `routers/train.py` | `POST /train` — acepta un payload JSON opcional con `hyperparams` por modelo y delega en `trainer.train_models()`. Los pipelines serializados se guardan en `models/tests/`. |
 | `routers/evaluate.py` | `POST /evaluate` — sin cuerpo. Delega en `evaluator.evaluate_all()`, genera métricas y gráficas, y promueve el mejor modelo a `models/best_model.pkl`. |
 | `routers/predict.py` | `POST /predict` — sin cuerpo. Ejecuta inferencia batch de forma asíncrona sobre el dataset completo delegando en `predict.predict_dataset()` y persiste los resultados en `outputs/predictions.json`. |
@@ -70,15 +63,6 @@ El sistema está compuesto por dos capas: una capa de lógica de negocio (`src/`
 ### Flujo de ejecución vía FastAPI
 
 La API expone tres endpoints desacoplados que deben invocarse en orden. `POST /train` carga los datos procesados, ajusta todos los pipelines de modelos y los guarda en `models/tests/`. Después, `POST /evaluate` recarga esos modelos, los puntúa sobre el conjunto de test, guarda las gráficas en `outputs/` y promueve el mejor modelo a `models/best_model.pkl`. Por último, `POST /predict` carga `best_model.pkl`, ejecuta inferencia batch de forma asíncrona sobre el dataset y persiste las predicciones en `outputs/predictions.json`.
-=======
-| `routers/train.py` | `POST /train` — valida un payload opcional de hiperparámetros y delega en `trainer.train_models()`. |
-| `routers/evaluate.py` | `POST /evaluate` — delega en `evaluator.evaluate_all()`. |
-| `routers/predict.py` | `POST /predict` — valida los registros de reserva con Pydantic y delega en `predict.predict_records()`. |
-
-### Flujo de ejecución vía FastAPI
-
-La API expone tres endpoints desacoplados que deben invocarse en orden. `POST /train` carga los datos procesados, ajusta todos los pipelines de modelos y los guarda en `models/tests/`. Después, `POST /evaluate` recarga esos modelos, los puntúa sobre el conjunto de test, guarda las gráficas en `outputs/` y promueve el mejor modelo a `best_model.pkl`. Por último, `POST /predict` carga `best_model.pkl` y devuelve predicciones para los registros de reserva entrantes.
->>>>>>> main
 
 ### Flujo de ejecución vía CLI (`python -m src.trainer`)
 
