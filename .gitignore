@@ -1,4 +1,6 @@
 # Environments
 env-eval/
 venv
+*.pyc
+__pycache__/
 .claude
