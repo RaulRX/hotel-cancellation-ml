@@ -1,0 +1,67 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.env
+.venv
+venv/
+env/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# Testing & Coverage
+.pytest_cache
+htmlcov/
+.coverage
+.tox/
+
+# Notebooks (desarrollo local)
+notebooks/
+
+# Project data (no necesario en imagen)
+data/raw/
+data/processed/
+
+# Outputs y modelos de test
+outputs/
+models/tests/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.gitpod.yml
+
+# Documentation
+README.md
+FINAL_REPORT.md
+*.md
+
+# Docker
+docker-compose.yaml
+Dockerfile
+.dockerignore
+
+# Archivos temporales
+*.tmp
+*.log
