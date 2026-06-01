@@ -1,4 +1,8 @@
 # Environments
-env-eval/
-venv
+env/
+venv**/
+ENV/
+.vscode/
+.env**
+__pycache__/
 .claude
