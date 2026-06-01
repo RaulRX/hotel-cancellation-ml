@@ -1,8 +1,14 @@
 # Environments
-env-eval/
-venv
-.claude
+env/
+venv**/
+ENV/
+.vscode/
+.env**
 __pycache__/
+<<<<<<< HEAD
 **.csv
 models/**
 outputs/
+=======
+.claude
+>>>>>>> main
