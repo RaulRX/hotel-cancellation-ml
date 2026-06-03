@@ -80,14 +80,14 @@ El modelo con mejor rendimiento fue **LightGBM**, alcanzando un **F1-score de ~7
 
 La métrica principal elegida para la comparación fue el **F1-score**, por encima de otras métricas como el Recall o la Accuracy. La justificación es de carácter de negocio: dado que el dataset presenta desbalance de clases, la Accuracy puede ser engañosa. El F1-score equilibra Precisión y Recall, penalizando de forma simétrica ambos tipos de error:
 
-- **Falsos negativos** (no predecir una cancelación real): el hotel no toma medidas preventivas y pierde ingresos.
-- **Falsos positivos** (predecir una cancelación que no ocurre): el hotel ofrece incentivos o descuentos innecesariamente.
+* **Falsos negativos** (no predecir una cancelación real): el hotel no toma medidas preventivas y pierde ingresos.
+* **Falsos positivos** (predecir una cancelación que no ocurre): el hotel ofrece incentivos o descuentos innecesariamente.
 
 LightGBM supera a los otros dos modelos por varias razones inherentes a su arquitectura:
 
-- Es un modelo de *gradient boosting* que construye árboles de forma **secuencial y correctiva**, aprendiendo de los errores del modelo anterior, lo que le permite capturar relaciones no lineales y complejas entre variables.
-- A diferencia del Árbol de Decisión, incorpora **regularización implícita** a través del proceso de boosting, lo que lo hace más robusto frente al sobreajuste.
-- El dataset de reservas hoteleras contiene variables con interacciones complejas (por ejemplo, la combinación de `lead_time` con `deposit_type`), terreno donde los modelos de *boosting* tienen ventaja natural.
+* Es un modelo de *gradient boosting* que construye árboles de forma **secuencial y correctiva**, aprendiendo de los errores del modelo anterior, lo que le permite capturar relaciones no lineales y complejas entre variables.
+* A diferencia del Árbol de Decisión, incorpora **regularización implícita** a través del proceso de boosting, lo que lo hace más robusto frente al sobreajuste.
+* El dataset de reservas hoteleras contiene variables con interacciones complejas (por ejemplo, la combinación de `lead_time` con `deposit_type`), terreno donde los modelos de *boosting* tienen ventaja natural.
 
 | Modelo               | F1-score (aprox.) |
 |----------------------|-------------------|
@@ -99,24 +99,23 @@ LightGBM supera a los otros dos modelos por varias razones inherentes a su arqui
 
 #### Calidad del dato
 
-- **`company`** fue eliminada del conjunto de features por presentar un **94% de valores nulos**, lo que impide extraer información fiable. Esto supone la pérdida potencial de señal relacionada con reservas corporativas.
-- Se detectaron **valores negativos y extremos en `adr`** (precio promedio por noche), corregidos mediante ajuste al **percentil 99**. Este enfoque elimina outliers pero puede enmascarar casos reales atípicos con precios legítimamente altos o bajos.
-- El dataset contenía una **gran proporción de filas duplicadas**, lo que podría amplificar el desbalance de clases e introducir sesgo en el entrenamiento si no se eliminan antes de la división train/test.
-  - **Patrón no aleatorio:** los duplicados se concentran en reservas corporativas con `company = 281.0` y `adr = 36.00`, lo que apunta a un error sistemático de ingesta por parte de una agencia o empresa concreta, no a ruido aleatorio.
-  - **Impacto en el balance de clases:** casi todos los duplicados corresponden a reservas no canceladas (`is_canceled = 0`), por lo que su eliminación reduce proporcionalmente la clase mayoritaria y mejora ligeramente el balance de clases.
-  - **Riesgo de data leakage entre train y test:** al haber filas 100% idénticas, si no se eliminan antes de la división, una misma reserva puede acabar simultáneamente en entrenamiento y test, inflando artificialmente las métricas de evaluación.
-
+* **`company`** fue eliminada del conjunto de features por presentar un **94% de valores nulos**, lo que impide extraer información fiable. Esto supone la pérdida potencial de señal relacionada con reservas corporativas.
+* Se detectaron **valores negativos y extremos en `adr`** (precio promedio por noche), corregidos mediante ajuste al **percentil 99**. Este enfoque elimina outliers pero puede enmascarar casos reales atípicos con precios legítimamente altos o bajos.
+* El dataset contenía una **gran proporción de filas duplicadas**, lo que podría amplificar el desbalance de clases e introducir sesgo en el entrenamiento si no se eliminan antes de la división train/test.
+  * **Patrón no aleatorio:** los duplicados se concentran en reservas corporativas con `company = 281.0` y `adr = 36.00`, lo que apunta a un error sistemático de ingesta por parte de una agencia o empresa concreta, no a ruido aleatorio.
+  * **Impacto en el balance de clases:** casi todos los duplicados corresponden a reservas no canceladas (`is_canceled = 0`), por lo que su eliminación reduce proporcionalmente la clase mayoritaria y mejora ligeramente el balance de clases.
+  * **Riesgo de data leakage entre train y test:** al haber filas 100% idénticas, si no se eliminan antes de la división, una misma reserva puede acabar simultáneamente en entrenamiento y test, inflando artificialmente las métricas de evaluación.
 
 #### Desbalance de clases
 
-- El dataset presenta más registros de no-cancelación que de cancelación. Se aplicó `class_weight='balanced'` durante la instanciación de los modelos, aunque el impacto observado fue limitado.
-- Como mejora futura, se propone explorar técnicas más avanzadas como **SMOTE** (*Synthetic Minority Oversampling Technique*), *undersampling* de la clase mayoritaria, o el ajuste del **umbral de decisión** del clasificador para favorecer el recall sobre la clase minoritaria.
+* El dataset presenta más registros de no-cancelación que de cancelación. Se aplicó `class_weight='balanced'` durante la instanciación de los modelos, aunque el impacto observado fue limitado.
+* Como mejora futura, se propone explorar técnicas más avanzadas como **SMOTE** (*Synthetic Minority Oversampling Technique*), *undersampling* de la clase mayoritaria, o el ajuste del **umbral de decisión** del clasificador para favorecer el recall sobre la clase minoritaria.
 
 #### Riesgo de data leakage
 
-- Las variables **`reservation_status`** y **`reservation_status_date`** fueron correctamente identificadas y eliminadas del conjunto de entrenamiento, ya que revelan el resultado final de la reserva y constituirían una fuga de información directa hacia el modelo.
+* Las variables **`reservation_status`** y **`reservation_status_date`** fueron correctamente identificadas y eliminadas del conjunto de entrenamiento, ya que revelan el resultado final de la reserva y constituirían una fuga de información directa hacia el modelo.
 
 #### Alcance y optimización
 
-- No se realizó una **optimización formal de hiperparámetros** (mediante `GridSearchCV` o `RandomizedSearchCV`), por lo que los modelos operan con configuraciones por defecto o ajustes manuales. Una búsqueda sistemática podría mejorar el rendimiento, especialmente en LightGBM.
-- El **análisis cuantitativo de importancia de variables** no se completó durante el desarrollo del proyecto, quedando como línea de trabajo futuro junto con técnicas de interpretabilidad como SHAP o LIME.
+* No se realizó una **optimización formal de hiperparámetros** (mediante `GridSearchCV` o `RandomizedSearchCV`), por lo que los modelos operan con configuraciones por defecto o ajustes manuales. Una búsqueda sistemática podría mejorar el rendimiento, especialmente en LightGBM.
+* El **análisis cuantitativo de importancia de variables** no se completó durante el desarrollo del proyecto, quedando como línea de trabajo futuro junto con técnicas de interpretabilidad como SHAP o LIME.

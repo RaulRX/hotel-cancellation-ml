@@ -112,6 +112,7 @@ El detalle completo de versiones se encuentra en `requirements.txt`.
 > Asegúrate de tener Python 3.11 instalado.
 
 Un único comando ejecuta el pipeline de extremo a extremo: reprocesa el dato crudo, entrena todos los modelos, los evalúa, selecciona el ganador por F1-score y escribe `models/best_model.pkl`.
+
 ```bash
 # 1. Clonar el repositorio
 git clone https://github.com/RaulRX/hotel-cancellation-ml.git
@@ -178,12 +179,7 @@ docker compose down
 El flujo completo está automatizado mediante un workflow de GitHub Actions. Los pasos que ejecuta:
 
 1. Descarga de datos
-2. Preprocesamiento de datos
-3. Entrenamiento de modelos
-4. Evaluación de modelos
-5. Generación de evidencias
-6. Generación de tag con release
-7. Compilación de la imagen Docker
+2. Compilación de la imagen Docker y ejecución del contenedor
 
 Para lanzarlo, accede a la pestaña **Actions** del repositorio y ejecuta el workflow correspondiente.
 
@@ -221,6 +217,7 @@ curl -X POST http://localhost:8000/train \
 ```
 
 Body (todos los campos son opcionales):
+
 ```json
 {
   "hyperparams": {
@@ -232,6 +229,7 @@ Body (todos los campos son opcionales):
 ```
 
 Respuesta exitosa (`200`):
+
 ```json
 {
   "status": "success",
@@ -255,6 +253,7 @@ curl -X POST http://localhost:8000/evaluate
 No requiere cuerpo. Llama internamente a `src.evaluator.evaluate_all`.
 
 Respuesta exitosa (`200`) — ejemplo:
+
 ```json
 {
   "best_model": "lightgbm",
@@ -281,6 +280,7 @@ curl -X POST http://localhost:8000/predict
 No requiere cuerpo. La ejecución es asíncrona internamente para no bloquear el event loop.
 
 Respuesta exitosa (`200`):
+
 ```json
 {
   "status": "ok",
