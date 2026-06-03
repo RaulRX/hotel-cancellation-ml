@@ -2,18 +2,14 @@ import logging
 import shutil
 
 import joblib
-from sklearn.model_selection import train_test_split
 
 from src.config import (
     BEST_MODEL_PATH,
     MODELS_TESTS_DIR,
     PRIMARY_METRIC,
     PROCESSED_DATA_PATH,
-    RANDOM_STATE,
-    TARGET_COLUMN,
-    TEST_SIZE,
 )
-from src.data_loader import load_processed_data, load_raw_data, save_processed_data
+from src.data_loader import load_processed_data, load_raw_data, save_processed_data, split_dataset
 from src.preprocess_data import MODEL_BUILDERS, clean_dataset
 
 logger = logging.getLogger(__name__)
@@ -25,7 +21,7 @@ def _clear_existing_models() -> None:
         BEST_MODEL_PATH.unlink()
     if MODELS_TESTS_DIR.exists():
         shutil.rmtree(MODELS_TESTS_DIR)
-    MODELS_TESTS_DIR.mkdir(parents=True)
+    MODELS_TESTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _prepare_dataset(force_reprocess: bool = False):
@@ -38,9 +34,7 @@ def _prepare_dataset(force_reprocess: bool = False):
         logger.info("Reusing existing processed dataset.")
         df = load_processed_data()
 
-    X = df.drop(columns=[TARGET_COLUMN])
-    y = df[TARGET_COLUMN]
-    return train_test_split(X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y)
+    return split_dataset(df)
 
 
 def train_models(hyperparams: dict[str, dict] | None = None) -> dict:
@@ -62,7 +56,7 @@ def train_models(hyperparams: dict[str, dict] | None = None) -> dict:
     """
     hyperparams = hyperparams or {}
 
-    if any(MODELS_TESTS_DIR.glob("*.pkl")):
+    if MODELS_TESTS_DIR.exists() and any(MODELS_TESTS_DIR.glob("*.pkl")):
         logger.info("Existing models found — clearing before retraining.")
         _clear_existing_models()
 
@@ -105,9 +99,12 @@ def train_all(hyperparams: dict[str, dict] | None = None) -> dict:
 
     hyperparams = hyperparams or {}
 
-    if BEST_MODEL_PATH.exists() or any(MODELS_TESTS_DIR.glob("*.pkl")):
+    tests_exist = MODELS_TESTS_DIR.exists() and any(MODELS_TESTS_DIR.glob("*.pkl"))
+    if BEST_MODEL_PATH.exists() or tests_exist:
         logger.info("Existing models found — clearing before retraining.")
         _clear_existing_models()
+    else:
+        MODELS_TESTS_DIR.mkdir(parents=True, exist_ok=True)
 
     X_train, X_test, y_train, y_test = _prepare_dataset(force_reprocess=True)
     logger.info("Split: %d train / %d test samples", len(X_train), len(X_test))
