@@ -16,6 +16,5 @@ ENV/
 __pycache__/
 .claude
 .vscode/
-**.csv
 outputs/
 .claude
