@@ -17,6 +17,5 @@ __pycache__/
 .claude
 .vscode/
 **.csv
-models/**
 outputs/
 .claude
