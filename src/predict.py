@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 from sklearn.pipeline import Pipeline
 
-from src.config import MODELS_TESTS_DIR, PREDICTIONS_PATH, PROCESSED_DATA_PATH, TARGET_COLUMN
-from src.data_loader import load_processed_data
+from src.config import MODELS_TESTS_DIR, PREDICTIONS_PATH, PROCESSED_DATA_PATH
+from src.data_loader import load_processed_data, split_dataset
 
 logger = logging.getLogger(__name__)
 
@@ -24,14 +24,14 @@ def predict_dataset() -> dict:
         raise FileNotFoundError("No trained models found. Run POST /train first.")
 
     df = load_processed_data(PROCESSED_DATA_PATH)
-    X = df.drop(columns=[TARGET_COLUMN])
-    y_true = df[TARGET_COLUMN].tolist()
+    _, X_test, _, y_test = split_dataset(df)
+    y_true = y_test.tolist()
 
     results = {}
     for model_file in candidates:
         logger.info("Running predictions with %s", model_file.name)
         pipeline: Pipeline = joblib.load(model_file)
-        y_pred, y_proba = make_predictions(pipeline, X)
+        y_pred, y_proba = make_predictions(pipeline, X_test)
         results[model_file.stem] = {
             "predictions": y_pred.tolist(),
             "probabilities": y_proba.tolist(),
