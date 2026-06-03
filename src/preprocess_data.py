@@ -9,6 +9,9 @@ from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
 from sklearn import set_config
 from lightgbm import LGBMClassifier
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from tensorflow.keras import models, layers
+
 
 set_config(transform_output="pandas")
 
@@ -201,6 +204,29 @@ class LightGBMPreprocessor(BaseEstimator, TransformerMixin):
         X["arrival_date_month"] = X["arrival_date_month"].map(MONTHS)
         return X
 
+class RandomForestPreprocessor(BaseEstimator, TransformerMixin):
+    """Feature engineering specific to Random Forest."""
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X = X.copy()
+        X["arrival_date_month"] = X["arrival_date_month"].map(MONTHS)
+
+        return X
+
+class ANNPreprocessor(BaseEstimator, TransformerMixin):
+    """Feature engineering specific to Artificial Neural Networks Multilayer."""
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X = X.copy()
+        X["arrival_date_month"] = X["arrival_date_month"].map(MONTHS)
+
+        return X
 
 class LGBOrdinalEncoder(BaseEstimator, TransformerMixin):
     """OrdinalEncoder over explicit categorical columns for LightGBM.
@@ -354,13 +380,47 @@ def build_logistic_regression_pipeline(
         )),
     ])
 
+def build_random_forest_pipeline(
+    n_estimators: int = 700,
+    max_depth = 10,
+    min_samples_leaf=2,
+    min_samples_split=5
+) -> Pipeline:
+    return Pipeline([
+        ("common", CommonPreprocessor()),
+        ("specific", RandomForestPreprocessor()),
+        ("encoder", AutoOrdinalEncoder()),
+        ("model", RandomForestClassifier(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            min_samples_leaf=min_samples_leaf,
+            min_samples_split=min_samples_split,
+            random_state=RANDOM_STATE
+        )),
+    ])
+
+def build_ann_pipeline(
+    X_train_transformed
+) -> Pipeline:
+    return Pipeline([
+        ("common", CommonPreprocessor()),
+        ("specific", ANNPreprocessor()),
+        ("encoder", AutoOrdinalEncoder()),
+        ("model", models.Sequential(layers=[
+            layers.Input(shape=(X_train_transformed.shape[1],), name='i1'),
+            layers.Dense(128, activation='relu', name='h1'),
+            layers.Dense(64, activation='relu', name='h2'),
+            layers.Dense(32, activation='relu', name='h3'),
+            layers.Dense(1, activation='sigmoid', name='o1')
+        ])),
+    ])
 
 MODEL_BUILDERS = {
     "logistic_regression": build_logistic_regression_pipeline,
     "decision_tree": build_decision_tree_pipeline,
     "lightgbm": build_lightgbm_pipeline,
-    # TODO: random_forest
-    # TODO: neural_network
+    "random_forest": build_random_forest_pipeline,
+    "artificial_neural_network": build_ann_pipeline
 }
 
 
