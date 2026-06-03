@@ -1,15 +1,14 @@
 from fastapi import APIRouter, HTTPException
 
-from src.trainer import train_all
+from src.evaluator import evaluate_all
 
-router = APIRouter(prefix="/train", tags=["train"])
+router = APIRouter(prefix="/evaluate", tags=["evaluate"])
 
 
 @router.post("")
-def train():
+def evaluate():
     try:
-        train_all()
-        return {"status": "success", "message": "Modelo entrenado y guardado en archivo pkl."}
+        return evaluate_all()
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
