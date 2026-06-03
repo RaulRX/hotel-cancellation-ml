@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   hotel-cancellation-predictor:
     container_name: cancellation-predictor
