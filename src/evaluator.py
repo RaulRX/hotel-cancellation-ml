@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 
@@ -15,46 +16,41 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
-from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
 from src.config import (
     BEST_MODEL_PATH,
     MODELS_TESTS_DIR,
     OUTPUTS_DIR,
+    PREDICTIONS_PATH,
     PRIMARY_METRIC,
-    PROCESSED_DATA_PATH,
-    RANDOM_STATE,
-    TARGET_COLUMN,
-    TEST_SIZE,
 )
-from src.data_loader import load_processed_data
-from src.predict import make_predictions
 
 logger = logging.getLogger(__name__)
 
 
-def evaluate_model(model: Pipeline, X_test: pd.DataFrame, y_test: pd.Series) -> dict:
-    """Compute classification metrics for a single fitted pipeline.
+def _compute_metrics(y_true: list, y_pred: list, y_proba: list) -> dict:
+    y_true_arr = np.array(y_true)
+    y_pred_arr = np.array(y_pred)
+    y_proba_arr = np.array(y_proba)
 
-    Returns
-    -------
-    dict with keys: accuracy, precision, recall, f1, roc_auc,
-                    confusion_matrix (list[list[int]]),
-                    fpr (list[float]), tpr (list[float])
-    """
-    y_pred, y_proba = make_predictions(model, X_test)
-
+    fpr, tpr, _ = roc_curve(y_true_arr, y_proba_arr)
     return {
-        "accuracy": round(float(accuracy_score(y_test, y_pred)), 4),
-        "precision": round(float(precision_score(y_test, y_pred, zero_division=0)), 4),
-        "recall": round(float(recall_score(y_test, y_pred, zero_division=0)), 4),
-        "f1": round(float(f1_score(y_test, y_pred, zero_division=0)), 4),
-        "roc_auc": round(float(roc_auc_score(y_test, y_proba)), 4),
-        "confusion_matrix": confusion_matrix(y_test, y_pred).tolist(),
-        "fpr": roc_curve(y_test, y_proba)[0].tolist(),
-        "tpr": roc_curve(y_test, y_proba)[1].tolist(),
+        "accuracy": round(float(accuracy_score(y_true_arr, y_pred_arr)), 4),
+        "precision": round(float(precision_score(y_true_arr, y_pred_arr, zero_division=0)), 4),
+        "recall": round(float(recall_score(y_true_arr, y_pred_arr, zero_division=0)), 4),
+        "f1": round(float(f1_score(y_true_arr, y_pred_arr, zero_division=0)), 4),
+        "roc_auc": round(float(roc_auc_score(y_true_arr, y_proba_arr)), 4),
+        "confusion_matrix": confusion_matrix(y_true_arr, y_pred_arr).tolist(),
+        "fpr": fpr.tolist(),
+        "tpr": tpr.tolist(),
     }
+
+
+def evaluate_model(model: Pipeline, X_test: pd.DataFrame, y_test: pd.Series) -> dict:
+    y_pred = np.asarray(model.predict(X_test))
+    y_proba = np.asarray(model.predict_proba(X_test)[:, 1])
+    return _compute_metrics(y_test.tolist(), y_pred.tolist(), y_proba.tolist())
 
 
 def _plot_roc_curves(results: dict[str, dict], output_dir: Path) -> None:
@@ -105,7 +101,6 @@ def _plot_feature_importance(name: str, model: Pipeline, output_dir: Path) -> No
         logger.info("Skipping feature importance for %s — not available", name)
         return
 
-    # Retrieve feature names from the last transformer before the model
     try:
         feature_names = model[:-1].get_feature_names_out()
     except AttributeError:
@@ -124,64 +119,37 @@ def _plot_feature_importance(name: str, model: Pipeline, output_dir: Path) -> No
     logger.info("Saved feature_importance_%s.png", name)
 
 
-def evaluate_all(dataset_path: str | None = None) -> list[dict]:
-    """Evaluate all models in models/tests/ and return the comparison table.
+def evaluate_all() -> list[dict]:
+    if not PREDICTIONS_PATH.exists():
+        raise FileNotFoundError("Predictions not found. Run POST /predict first.")
 
-    Loads the processed dataset, recreates the same train/test split used
-    during training, evaluates each saved pipeline on X_test, saves output
-    plots to outputs/, and returns the comparison table ordered by F1 desc.
-
-    Parameters
-    ----------
-    dataset_path : str | None
-        Optional override path to the processed dataset CSV.
-
-    Returns
-    -------
-    list[dict] — one entry per model, keys: model, accuracy, precision,
-                 recall, f1, roc_auc, is_best
-    """
-    path = Path(dataset_path) if dataset_path else PROCESSED_DATA_PATH
-    df = load_processed_data(path)
-
-    X = df.drop(columns=[TARGET_COLUMN])
-    y = df[TARGET_COLUMN]
-
-    _, X_test, _, y_test = train_test_split(
-        X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y
-    )
-
-    model_files = sorted(MODELS_TESTS_DIR.glob("*.pkl"))
-    if not model_files:
-        raise FileNotFoundError(
-            f"No trained models found in {MODELS_TESTS_DIR}. Run POST /train first."
-        )
+    payload = json.loads(PREDICTIONS_PATH.read_text())
+    y_true = payload["y_true"]
+    models_data = payload["models"]
 
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
     results: dict[str, dict] = {}
-    for model_file in model_files:
-        name = model_file.stem
+    for name, data in models_data.items():
         logger.info("Evaluating %s", name)
-        pipeline: Pipeline = joblib.load(model_file)
-        results[name] = evaluate_model(pipeline, X_test, y_test)
+        results[name] = _compute_metrics(y_true, data["predictions"], data["probabilities"])
 
-    # Save plots
     _plot_roc_curves(results, OUTPUTS_DIR)
     for name, metrics in results.items():
         _plot_confusion_matrix(name, metrics["confusion_matrix"], OUTPUTS_DIR)
-        pipeline = joblib.load(MODELS_TESTS_DIR / f"{name}.pkl")
+        pipeline: Pipeline = joblib.load(MODELS_TESTS_DIR / f"{name}.pkl")
         _plot_feature_importance(name, pipeline, OUTPUTS_DIR)
-
-    def _pct(value: float) -> str:
-        return f"{round(value * 100, 2)}%"
 
     best_name = max(results, key=lambda n: results[n][PRIMARY_METRIC])
     best_pipeline = joblib.load(MODELS_TESTS_DIR / f"{best_name}.pkl")
     BEST_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(best_pipeline, BEST_MODEL_PATH)
     logger.info("Best model: %s — saved to %s", best_name, BEST_MODEL_PATH)
-    table = [
+
+    def _pct(v: float) -> str:
+        return f"{round(v * 100, 2)}%"
+
+    return [
         {
             "model": name,
             "accuracy": _pct(metrics["accuracy"]),
@@ -195,6 +163,3 @@ def evaluate_all(dataset_path: str | None = None) -> list[dict]:
             results.items(), key=lambda kv: kv[1][PRIMARY_METRIC], reverse=True
         )
     ]
-
-    logger.info("Best model by %s: %s", PRIMARY_METRIC, best_name)
-    return table

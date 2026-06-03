@@ -7,6 +7,16 @@ ENV/
 .env**
 env-eval/
 venv
-.claude
+venv**/
+env/
+ENV/
+
+.env**
+*.pyc
 __pycache__/
+.claude
+.vscode/
 **.csv
+models/**
+outputs/
+.claude

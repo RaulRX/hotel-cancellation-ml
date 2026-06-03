@@ -2,7 +2,8 @@ import logging
 
 from fastapi import FastAPI
 
-from api.routers import evaluate, predict, train
+from src.api.routers import train
+from src.api.routers import evaluate, predict
 
 logging.basicConfig(
     level=logging.INFO,

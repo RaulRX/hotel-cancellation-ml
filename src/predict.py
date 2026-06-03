@@ -1,70 +1,46 @@
+import json
 import logging
-from pathlib import Path
 
 import joblib
 import numpy as np
 import pandas as pd
 from sklearn.pipeline import Pipeline
 
-from src.config import BEST_MODEL_PATH
+from src.config import MODELS_TESTS_DIR, PREDICTIONS_PATH, PROCESSED_DATA_PATH, TARGET_COLUMN
+from src.data_loader import load_processed_data
 
 logger = logging.getLogger(__name__)
 
 
 def make_predictions(model: Pipeline, X: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-    """Run predict and predict_proba through a fitted pipeline.
-
-    Used internally by trainer and evaluator — the pipeline is already loaded
-    in memory, so no disk access happens here.
-
-    Parameters
-    ----------
-    model : fitted sklearn Pipeline (preprocessor + estimator)
-    X : raw DataFrame (no preprocessing applied yet — the pipeline handles it)
-
-    Returns
-    -------
-    y_pred : ndarray of shape (n_samples,)
-    y_proba : ndarray of shape (n_samples,)  — P(is_canceled=1)
-    """
     y_pred = model.predict(X)
     y_proba = model.predict_proba(X)[:, 1]
-
     return np.asarray(y_pred), np.asarray(y_proba)
 
 
-def predict_records(records: list[dict], model_path: Path = BEST_MODEL_PATH) -> dict:
-    """Load a persisted pipeline and predict over raw booking records.
+def predict_dataset() -> dict:
+    candidates = sorted(MODELS_TESTS_DIR.glob("*.pkl"))
+    if not candidates:
+        raise FileNotFoundError("No trained models found. Run POST /train first.")
 
-    Intended for the API endpoint — loads the pipeline from disk, builds a
-    DataFrame from the raw input records and delegates to make_predictions.
-    The pipeline internally handles all preprocessing before inference.
+    df = load_processed_data(PROCESSED_DATA_PATH)
+    X = df.drop(columns=[TARGET_COLUMN])
+    y_true = df[TARGET_COLUMN].tolist()
 
-    Parameters
-    ----------
-    records : list[dict]
-        Raw booking records (BookingRecord.model_dump() from the API request).
-    model_path : Path
-        Path to a persisted pipeline (.pkl). Defaults to best_model.pkl.
+    results = {}
+    for model_file in candidates:
+        logger.info("Running predictions with %s", model_file.name)
+        pipeline: Pipeline = joblib.load(model_file)
+        y_pred, y_proba = make_predictions(pipeline, X)
+        results[model_file.stem] = {
+            "predictions": y_pred.tolist(),
+            "probabilities": y_proba.tolist(),
+        }
 
-    Returns
-    -------
-    dict with keys:
-        - predictions   : list[int]    — binary class per record (0 or 1)
-        - probabilities : list[float]  — P(is_canceled=1) per record
-    """
-    if not model_path.exists():
-        raise FileNotFoundError(
-            f"Model not found at {model_path}. Run POST /train first."
-        )
+    payload = {"y_true": y_true, "models": results}
 
-    logger.info("Loading pipeline from %s", model_path)
-    pipeline: Pipeline = joblib.load(model_path)
+    PREDICTIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PREDICTIONS_PATH.write_text(json.dumps(payload))
+    logger.info("Predictions persisted to %s", PREDICTIONS_PATH)
 
-    X = pd.DataFrame(records)
-    y_pred, y_proba = make_predictions(pipeline, X)
-
-    return {
-        "predictions": y_pred.tolist(),
-        "probabilities": y_proba.tolist(),
-    }
+    return {model: {"predictions": v["predictions"]} for model, v in results.items()}
