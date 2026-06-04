@@ -227,6 +227,9 @@ class ANNPreprocessor(BaseEstimator, TransformerMixin):
         X["arrival_date_month"] = X["arrival_date_month"].map(MONTHS)
 
         return X
+    
+    def fit_transform(self, X, y=None):
+        return self
 
 class LGBOrdinalEncoder(BaseEstimator, TransformerMixin):
     """OrdinalEncoder over explicit categorical columns for LightGBM.
