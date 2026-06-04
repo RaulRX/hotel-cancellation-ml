@@ -1,17 +1,11 @@
 # Environments
-env/
 env**/
 venv**/
-ENV/
 .vscode/
 .env**
-env-eval/
-venv
-venv**/
-env/
-ENV/
+data/processed/**
 
-.env**
+*.pkl
 *.pyc
 __pycache__/
 .claude
