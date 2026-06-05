@@ -14,6 +14,8 @@ import tensorflow as tf
 from tensorflow.keras import models, layers
 from scikeras.wrappers import KerasClassifier
 
+from src.config import PRIMARY_METRIC
+
 
 set_config(transform_output="pandas")
 
@@ -218,14 +220,6 @@ class RandomForestPreprocessor(BaseEstimator, TransformerMixin):
 
         return X
 
-ANN_LEAKAGE_COLUMNS = [
-    "arrival_date_year",
-    "arrival_date_week_number",
-    "reservation_status",
-    "reservation_status_date",
-]
-
-
 class ANNPreprocessor(BaseEstimator, TransformerMixin):
     """Self-contained preprocessing for the Multilayer ANN.
 
@@ -260,7 +254,7 @@ class ANNPreprocessor(BaseEstimator, TransformerMixin):
         X["agent_known"] = X["agent"].notna().astype(int)
         X.drop(columns=["agent"], inplace=True, errors="ignore")
 
-        X.drop(columns=ANN_LEAKAGE_COLUMNS, inplace=True, errors="ignore")
+        X.drop(columns=LEAKAGE_COLUMNS, inplace=True, errors="ignore")
 
         X = self._rare_country.transform(X)
         X = self._rare_dist.transform(X)
@@ -489,7 +483,7 @@ def _build_ann_model(meta, learning_rate=0.001):
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
         loss="binary_crossentropy",
-        metrics=["accuracy"],
+        metrics=[PRIMARY_METRIC],
     )
     return model
 
@@ -508,6 +502,7 @@ def build_ann_pipeline(
             model__learning_rate=learning_rate,
             epochs=epochs,
             batch_size=batch_size,
+            fit__validation_split=0.2,
             verbose=0,
             random_state=RANDOM_STATE,
         )),

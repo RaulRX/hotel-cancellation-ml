@@ -6,11 +6,12 @@ import joblib
 from src.config import (
     BEST_MODEL_PATH,
     MODELS_TESTS_DIR,
-    PRIMARY_METRIC,
-    PROCESSED_DATA_PATH,
+    PRIMARY_METRIC
 )
-from src.data_loader import load_processed_data, load_raw_data, save_processed_data, split_dataset
-from src.preprocess_data import MODEL_BUILDERS, clean_dataset
+
+from src.data_loader import prepare_dataset
+
+from src.preprocess_data import MODEL_BUILDERS
 
 logger = logging.getLogger(__name__)
 
@@ -22,19 +23,6 @@ def _clear_existing_models() -> None:
     if MODELS_TESTS_DIR.exists():
         shutil.rmtree(MODELS_TESTS_DIR)
     MODELS_TESTS_DIR.mkdir(parents=True, exist_ok=True)
-
-
-def _prepare_dataset(force_reprocess: bool = False):
-    """Load and optionally reprocess the dataset. Returns (X_train, X_test, y_train, y_test)."""
-    if force_reprocess or not PROCESSED_DATA_PATH.exists():
-        logger.info("Loading and cleaning raw data...")
-        df = clean_dataset(load_raw_data())
-        save_processed_data(df)
-    else:
-        logger.info("Reusing existing processed dataset.")
-        df = load_processed_data()
-
-    return split_dataset(df)
 
 
 def train_models(hyperparams: dict[str, dict] | None = None) -> dict:
@@ -60,7 +48,7 @@ def train_models(hyperparams: dict[str, dict] | None = None) -> dict:
         logger.info("Existing models found — clearing before retraining.")
         _clear_existing_models()
 
-    X_train, _, y_train, _ = _prepare_dataset(force_reprocess=False)
+    X_train, _, y_train, _ = prepare_dataset(force_reprocess=False)
     logger.info("Split: %d train samples", len(X_train))
 
     trained = []
@@ -103,10 +91,8 @@ def train_all(hyperparams: dict[str, dict] | None = None) -> dict:
     if BEST_MODEL_PATH.exists() or tests_exist:
         logger.info("Existing models found — clearing before retraining.")
         _clear_existing_models()
-    else:
-        MODELS_TESTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    X_train, X_test, y_train, y_test = _prepare_dataset(force_reprocess=True)
+    X_train, X_test, y_train, y_test = prepare_dataset(force_reprocess=True)
     logger.info("Split: %d train / %d test samples", len(X_train), len(X_test))
 
     metrics_per_model: dict[str, dict] = {}
@@ -132,7 +118,7 @@ def train_all(hyperparams: dict[str, dict] | None = None) -> dict:
     best_pipeline = joblib.load(MODELS_TESTS_DIR / f"{best_name}.pkl")
     BEST_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(best_pipeline, BEST_MODEL_PATH)
-    logger.info("Best model: %s (F1=%.4f) saved to %s", best_name, metrics_per_model[best_name][PRIMARY_METRIC], BEST_MODEL_PATH)
+    logger.info("Best model: %s (Accuracy=%.4f) saved to %s", best_name, metrics_per_model[best_name][PRIMARY_METRIC], BEST_MODEL_PATH)
 
     def _pct(value: float) -> str:
         return f"{round(value * 100, 2)}%"

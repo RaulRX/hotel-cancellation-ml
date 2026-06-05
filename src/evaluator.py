@@ -16,6 +16,7 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
+from scikeras.wrappers import KerasClassifier
 from sklearn.pipeline import Pipeline
 
 from src.config import (
@@ -46,8 +47,24 @@ def _compute_metrics(y_true: list, y_pred: list, y_proba: list) -> dict:
         "tpr": tpr.tolist(),
     }
 
+def _compute_metrics_ANN(model: Pipeline, X_test: pd.DataFrame, y_test: pd.Series) -> dict:
+    estimator = model.named_steps["model"]
+    X_transformed = model[:-1].transform(X_test)
+
+    loss, accuracy = estimator.model_.evaluate(X_transformed, y_test, verbose=1)
+    logger.info("Test Loss: %.4f, Test Accuracy: %.4f", loss, accuracy)
+
+    y_prob_raw = np.asarray(model.predict(X_test)).ravel()
+    y_pred = (y_prob_raw > 0.5).astype(int)
+
+    metrics = _compute_metrics(y_test.tolist(), y_pred.tolist(), y_prob_raw.tolist())
+    metrics["loss"] = round(float(loss), 4)
+    return metrics
+
 
 def evaluate_model(model: Pipeline, X_test: pd.DataFrame, y_test: pd.Series) -> dict:
+    if isinstance(model.named_steps["model"], KerasClassifier):
+        return _compute_metrics_ANN(model, X_test, y_test)
     y_pred = np.asarray(model.predict(X_test))
     y_proba = np.asarray(model.predict_proba(X_test)[:, 1])
     return _compute_metrics(y_test.tolist(), y_pred.tolist(), y_proba.tolist())
@@ -86,6 +103,22 @@ def _plot_confusion_matrix(name: str, cm: list[list[int]], output_dir: Path) -> 
     fig.savefig(output_dir / f"confusion_matrix_{name}.png", dpi=150)
     plt.close(fig)
     logger.info("Saved confusion_matrix_%s.png", name)
+
+
+def _plot_loss_curve(name: str, model: Pipeline, output_dir: Path) -> None:
+    history = model.named_steps["model"].history_
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.plot(history["loss"], label="Loss train")
+    ax.plot(history["val_loss"], label="Loss val")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Loss")
+    ax.set_title(f"Curva de aprendizaje — {name}")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(output_dir / f"loss_curve_{name}.png", dpi=150)
+    plt.close(fig)
+    logger.info("Saved loss_curve_%s.png", name)
 
 
 def _plot_feature_importance(name: str, model: Pipeline, output_dir: Path) -> None:
@@ -139,6 +172,8 @@ def evaluate_all() -> list[dict]:
         _plot_confusion_matrix(name, metrics["confusion_matrix"], OUTPUTS_DIR)
         pipeline: Pipeline = joblib.load(MODELS_TESTS_DIR / f"{name}.pkl")
         _plot_feature_importance(name, pipeline, OUTPUTS_DIR)
+        if isinstance(pipeline.named_steps["model"], KerasClassifier):
+            _plot_loss_curve(name, pipeline, OUTPUTS_DIR)
 
     best_name = max(results, key=lambda n: results[n][PRIMARY_METRIC])
     best_pipeline = joblib.load(MODELS_TESTS_DIR / f"{best_name}.pkl")

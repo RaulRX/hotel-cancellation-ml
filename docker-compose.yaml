@@ -1,6 +1,5 @@
 services:
-  hotel-cancellation-predictor:
-    container_name: cancellation-predictor
+  cancellation-predictor:
     build:
       context: .
       dockerfile: Dockerfile

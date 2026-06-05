@@ -15,4 +15,4 @@ PREDICTIONS_PATH = OUTPUTS_DIR / "predictions.json"
 TARGET_COLUMN = "is_canceled"
 RANDOM_STATE = 11
 TEST_SIZE = 0.2
-PRIMARY_METRIC = "f1"
+PRIMARY_METRIC = "accuracy"
