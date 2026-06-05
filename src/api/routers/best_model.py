@@ -5,10 +5,10 @@ from pydantic import BaseModel
 
 from src.trainer import train_all
 
-router = APIRouter(prefix="/create", tags=["create"])
+router = APIRouter(prefix="/best-model", tags=["best_model"])
 
 
-class CreateRequest(BaseModel):
+class BestModelRequest(BaseModel):
     hyperparams: dict[str, dict[str, Any]] | None = None
     """Optional per-model hyperparameter overrides.
 
@@ -22,7 +22,7 @@ class CreateRequest(BaseModel):
 
 
 @router.get("")
-def create():
+def best_model():
     try:
         result = train_all()
         return {"status": "success", **result}
