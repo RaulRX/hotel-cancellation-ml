@@ -18,5 +18,5 @@ __pycache__/
 .vscode/
 outputs/
 .claude
-models/**
+models/*
 data/processed/*
