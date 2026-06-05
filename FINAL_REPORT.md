@@ -55,10 +55,11 @@ El sistema está compuesto por dos capas: una capa de lógica de negocio (`src/`
 
 | Script | Responsabilidad |
 |---|---|
-| `main.py` | Crea la aplicación FastAPI y registra los tres routers. |
+| `main.py` | Crea la aplicación FastAPI y registra los cuatro routers. |
+| `routers/best_model.py` | `GET /best-model` — sin cuerpo. Ejecuta el pipeline completo (train + predict + evaluate) en una sola llamada delegando en `trainer.train_all()`. Pensado para obtener el mejor modelo sin gestionar el flujo manualmente. |
 | `routers/train.py` | `POST /train` — acepta un payload JSON opcional con `hyperparams` por modelo y delega en `trainer.train_models()`. Los pipelines serializados se guardan en `models/tests/`. |
-| `routers/evaluate.py` | `POST /evaluate` — sin cuerpo. Delega en `evaluator.evaluate_all()`, genera métricas y gráficas, y promueve el mejor modelo a `models/best_model.pkl`. |
 | `routers/predict.py` | `POST /predict` — sin cuerpo. Ejecuta inferencia batch de forma asíncrona sobre el dataset completo delegando en `predict.predict_dataset()` y persiste los resultados en `outputs/predictions.json`. |
+| `routers/evaluate.py` | `POST /evaluate` — sin cuerpo. Delega en `evaluator.evaluate_all()`, genera métricas y gráficas, y promueve el mejor modelo a `models/best_model.pkl`. |
 
 ### Flujo de ejecución vía FastAPI
 
