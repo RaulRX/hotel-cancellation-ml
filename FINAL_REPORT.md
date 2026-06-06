@@ -75,26 +75,25 @@ El flujo FastAPI separa el entrenamiento y la evaluación en dos llamadas HTTP e
 
 ## Resultado y elección final
 
-> Este resumen recoge las reflexiones y conclusiones obtenidas a partir de la implementación y comparación de los siguientes algoritmos: **Logistic Regression**, **Decision Tree** y **LightGBM**.
+> Este resumen recoge las reflexiones y conclusiones obtenidas a partir de la implementación y comparación de los siguientes algoritmos: **Logistic Regression**, **Decision Tree**, **Random Forest**, **LightGBM** y **Deep Neural Network (Keras)**.
 
-El modelo con mejor rendimiento fue **LightGBM**, alcanzando un **F1-score de ~70%**, frente al **65.5%** de la Regresión Logística y el **~63%** del Árbol de Decisión.
+El modelo con mejor rendimiento fue **LightGBM**, alcanzando una **accuracy del 84.08%**, frente al **80.91%** del Random Forest, el **79.85%** de la Red Neuronal, el **76.99%** de la Regresión Logística y el **72.06%** del Árbol de Decisión.
 
-La métrica principal elegida para la comparación fue el **F1-score**, por encima de otras métricas como el Recall o la Accuracy. La justificación es de carácter de negocio: dado que el dataset presenta desbalance de clases, la Accuracy puede ser engañosa. El F1-score equilibra Precisión y Recall, penalizando de forma simétrica ambos tipos de error:
+La métrica principal elegida para la comparación fue la **Accuracy**, por ser la métrica más directa e interpretable: refleja la proporción global de predicciones correctas y permite comparar modelos de forma inmediata sin necesidad de ponderar tipos de error.
 
-* **Falsos negativos** (no predecir una cancelación real): el hotel no toma medidas preventivas y pierde ingresos.
-* **Falsos positivos** (predecir una cancelación que no ocurre): el hotel ofrece incentivos o descuentos innecesariamente.
-
-LightGBM supera a los otros dos modelos por varias razones inherentes a su arquitectura:
+LightGBM supera al resto de modelos por varias razones inherentes a su arquitectura:
 
 * Es un modelo de *gradient boosting* que construye árboles de forma **secuencial y correctiva**, aprendiendo de los errores del modelo anterior, lo que le permite capturar relaciones no lineales y complejas entre variables.
 * A diferencia del Árbol de Decisión, incorpora **regularización implícita** a través del proceso de boosting, lo que lo hace más robusto frente al sobreajuste.
 * El dataset de reservas hoteleras contiene variables con interacciones complejas (por ejemplo, la combinación de `lead_time` con `deposit_type`), terreno donde los modelos de *boosting* tienen ventaja natural.
 
-| Modelo               | F1-score (aprox.) |
-|----------------------|-------------------|
-| Regresión Logística  | 65.50%            |
-| Árbol de Decisión    | ~63%              |
-| LightGBM             | ~70%              |
+| Modelo               | Accuracy |
+|----------------------|----------|
+| Logistic Regression  | 76.99%   |
+| Decision Tree        | 72.06%   |
+| Random Forest        | 80.91%   |
+| Deep Neural Network  | 79.85%   |
+| LightGBM             | **84.08%** |
 
 ## Reflexión crítica sobre limitaciones y mejoras
 
