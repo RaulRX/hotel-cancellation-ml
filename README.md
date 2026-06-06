@@ -77,6 +77,7 @@ hotel-cancellation-ml/
     └── api/                    # API REST (FastAPI)
         ├── main.py             # Entrada de la aplicación y registro de routers
         └── routers/
+            ├── best_model.py   # Router GET /best-model
             ├── train.py        # Router POST /train
             ├── evaluate.py     # Router POST /evaluate
             └── predict.py      # Router POST /predict
@@ -189,11 +190,42 @@ Para lanzarlo, accede a la pestaña **Actions** del repositorio y ejecuta el wor
 
 | Endpoint | Método | Body | Descripción |
 |---|---|---|---|
+| `GET /best-model` | `GET` | — | Ejecuta el pipeline completo (train + evaluate) y devuelve el mejor modelo |
 | `POST /train` | `POST` | JSON opcional con `hyperparams` | Entrena todos los modelos candidatos y los serializa en `models/tests/` |
 | `POST /evaluate` | `POST` | — | Evalúa los modelos entrenados, genera métricas y selecciona el mejor en `models/best_model.pkl` |
 | `POST /predict` | `POST` | — | Ejecuta inferencia batch con el mejor modelo sobre el dataset y guarda resultados en `outputs/predictions.json` |
 
-**Flujo esperado**: **`POST /train` → `POST /evaluate` → `POST /predict`**
+**Flujo paso a paso**: **`POST /train` → `POST /predict` → `POST /evaluate`**
+
+**Flujo completo en un solo paso**: **`GET /best-model`** (equivale a ejecutar train + predict + evaluate de forma encadenada)
+
+---
+
+**`GET /best-model`**
+
+Ejecuta el pipeline completo de forma encadenada (train → evaluate) en una sola llamada. Equivale a llamar a `POST /train` seguido de `POST /evaluate`. Útil para obtener el mejor modelo sin gestionar el flujo manualmente.
+
+```bash
+curl http://localhost:8000/best-model
+```
+
+No requiere cuerpo. Llama internamente a `src.trainer.train_all`.
+
+Respuesta exitosa (`200`) — ejemplo:
+
+```json
+{
+  "status": "success",
+  "best_model": "lightgbm",
+  "metrics": {
+    "logistic_regression": {"accuracy": 0.80, "f1": 0.78, "roc_auc": 0.86},
+    "decision_tree":        {"accuracy": 0.83, "f1": 0.81, "roc_auc": 0.88},
+    "lightgbm":             {"accuracy": 0.89, "f1": 0.87, "roc_auc": 0.95}
+  }
+}
+```
+
+Errores: `404` si no se encuentra el CSV, `500` para cualquier otro error.
 
 ---
 
@@ -308,16 +340,19 @@ El pipeline entrena y compara los siguientes algoritmos de clasificación binari
 
 ## Métrica principal y evaluación
 
-**Métrica principal**: F1-score
+**Métrica principal**: Accuracy
 
-**Justificación**: En este problema, los dos tipos de error tienen un coste significativo pero simétrico:
+**Justificación**: La accuracy mide la proporción de predicciones correctas sobre el total de casos. Es la métrica más directa e interpretable en clasificación: un modelo con accuracy del 85 % acierta 85 de cada 100 reservas, sin necesidad de conocer conceptos adicionales para leer el resultado.
 
-- Un **falso negativo** (predecir que el cliente *no* cancela cuando sí lo hará) significa que el hotel no tomará medidas preventivas — no ofrecerá descuentos ni reasignará la habitación a tiempo. En periodos de baja ocupación, esto puede traducirse en ingresos perdidos difíciles de recuperar.
-- Un **falso positivo** (predecir cancelación cuando el cliente *no* va a cancelar) lleva a ofrecer descuentos o incentivos innecesarios. En temporada alta, donde la demanda es alta, esto supone pérdidas directas y potenciales reclamaciones de clientes que pagaron tarifa completa.
+Su elección como métrica de referencia se apoya en tres razones:
 
-Dado que ninguno de los dos errores es claramente más costoso que el otro — el impacto depende de la temporada y la ocupación del hotel —, se busca un **equilibrio entre precision y recall**. El **F1-score**, al ser la media armónica de ambas métricas, penaliza por igual los falsos positivos y los falsos negativos, lo que lo convierte en la métrica más adecuada para este caso de uso.
+1. **Interpretabilidad universal**: cualquier stakeholder no técnico entiende inmediatamente qué significa "el modelo acierta el X % de los casos". Esto facilita la comunicación de resultados y la toma de decisiones.
+2. **Visión global del rendimiento**: agrega en un único número el comportamiento del modelo sobre todas las clases, lo que permite comparar modelos distintos de forma rápida y objetiva durante la fase de selección.
+3. **Punto de partida sólido**: en proyectos donde se exploran varios algoritmos en paralelo, la accuracy actúa como criba inicial. Los modelos que no superan un umbral mínimo de accuracy quedan descartados antes de analizar métricas más finas.
 
-Además de la métrica principal se reportan para cada modelo:
+Además de la accuracy, se reportan métricas complementarias que cubren aspectos que esta no captura por sí sola: Precision, Recall, F1-score y AUC-ROC.
+
+Para cada modelo se reportan:
 
 - **Accuracy**, **Precision**, **Recall**, **F1-score**, **AUC-ROC**
 - Matriz de confusión
@@ -332,15 +367,15 @@ Además de la métrica principal se reportan para cada modelo:
 
 | Modelo | Accuracy | F1-score | ROC-AUC |
 |---|---|---|---|
-| Logistic Regression | [TODO] | [TODO] | [TODO] |
-| Decision Tree | [TODO] | [TODO] | [TODO] |
-| Random Forest | [TODO] | [TODO] | [TODO] |
-| LightGBM | [TODO] | [TODO] | [TODO] |
-| Deep Neural Network (Keras) | [TODO] | [TODO] | [TODO] |
+| Logistic Regression | 76.99% | 66.14% | 86.12% |
+| Decision Tree | 72.06% | 62.74% | 85.53% |
+| Random Forest | 80.91% | 57.43% | 87.16% |
+| LightGBM | **84.08%** | **69.69%** | **90.36%** |
+| Deep Neural Network (Keras) | 79.85% | 62.36% | 73.89% |
 
 ### Modelo seleccionado
 
-`[TODO: nombre del modelo ganador]` — seleccionado por obtener el mejor valor de `[TODO: métrica principal]` con un valor de `[TODO: valor]`.
+**LightGBM** — seleccionado por obtener la mejor accuracy con un valor de **84.08%**, liderando también en F1-score (69.69%) y AUC-ROC (90.36%).
 
 ### Conclusiones
 

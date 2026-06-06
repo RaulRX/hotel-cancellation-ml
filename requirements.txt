@@ -3,19 +3,22 @@ joblib==1.5.1
 lightgbm==4.6.0
 numpy==1.26.4
 pandas==2.2.3
-scikit-learn==1.6.1
+scikeras==0.13.0
+scikit-learn==1.5.2
 scipy==1.13.1
-tensorflow==2.19.0
+tensorflow==2.17.0
+keras==3.4.1
 
 # Visualization
 matplotlib==3.10.3
 seaborn==0.13.2
 
 # API
+fastapi[standard]
 fastapi==0.115.12
 pydantic==2.11.5
 pydantic-core==2.33.2
-uvicorn==0.34.3
+
 
 # FastAPI / uvicorn transitive deps
 annotated-types==0.7.0

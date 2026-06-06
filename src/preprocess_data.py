@@ -10,7 +10,11 @@ from sklearn import set_config
 from lightgbm import LGBMClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
+import tensorflow as tf
 from tensorflow.keras import models, layers
+from scikeras.wrappers import KerasClassifier
+
+from src.config import PRIMARY_METRIC
 
 
 set_config(transform_output="pandas")
@@ -217,14 +221,49 @@ class RandomForestPreprocessor(BaseEstimator, TransformerMixin):
         return X
 
 class ANNPreprocessor(BaseEstimator, TransformerMixin):
-    """Feature engineering specific to Artificial Neural Networks Multilayer."""
+    """Self-contained preprocessing for the Multilayer ANN.
+
+    Common steps replicated:
+    - Impute children NaN -> 0
+    - Binarise agent -> agent_known, drop agent
+    - Group rare country / distribution_channel / market_segment
+    - Drop leakage columns (but NOT company)
+
+    ANN-specific steps:
+    - reserved_assigned_room = (reserved_room_type == assigned_room_type),
+      then drop both room_type columns
+    """
 
     def fit(self, X, y=None):
+        self._rare_country = RareCategoryGrouper(
+            columns=["country"], threshold=0.01, replacement="Others", inclusive=False
+        ).fit(X)
+        self._rare_dist = RareCategoryGrouper(
+            columns=["distribution_channel"], threshold=0.01, replacement="others", inclusive=False
+        ).fit(X)
+        self._rare_market = RareCategoryGrouper(
+            columns=["market_segment"], threshold=0.01, replacement="Others", inclusive=True
+        ).fit(X)
         return self
 
     def transform(self, X):
         X = X.copy()
-        X["arrival_date_month"] = X["arrival_date_month"].map(MONTHS)
+
+        X["children"] = X["children"].fillna(0)
+
+        X["agent_known"] = X["agent"].notna().astype(int)
+        X.drop(columns=["agent"], inplace=True, errors="ignore")
+
+        X.drop(columns=LEAKAGE_COLUMNS, inplace=True, errors="ignore")
+
+        X = self._rare_country.transform(X)
+        X = self._rare_dist.transform(X)
+        X = self._rare_market.transform(X)
+
+        X["reserved_assigned_room"] = (
+            X["reserved_room_type"] == X["assigned_room_type"]
+        ).astype(int)
+        X.drop(columns=["reserved_room_type", "assigned_room_type"], inplace=True, errors="ignore")
 
         return X
 
@@ -316,6 +355,38 @@ class LROHEEncoder(BaseEstimator, TransformerMixin):
         return pd.concat([X.drop(columns=self._cols), ohe_df], axis=1)
 
 
+class SelectiveStandardScaler(BaseEstimator, TransformerMixin):
+    """StandardScaler applied only to the given numeric columns.
+
+    Ordinal-encoded categorical columns are left untouched, replicating the
+    notebook's ColumnTransformer (StandardScaler on numeric, passthrough on
+    ordinal). Columns not present in X at fit time are silently skipped, so it
+    is robust to model-specific column drops.
+    """
+
+    def __init__(self, columns):
+        self.columns = columns
+
+    def fit(self, X, y=None):
+        self._cols = [c for c in self.columns if c in X.columns]
+        self._scaler = StandardScaler().fit(X[self._cols])
+        return self
+
+    def transform(self, X):
+        X = X.copy()
+        X[self._cols] = self._scaler.transform(X[self._cols])
+        return X
+
+
+ANN_NUMERIC_COLUMNS = [
+    "lead_time", "arrival_date_day_of_month", "stays_in_weekend_nights",
+    "stays_in_week_nights", "adults", "children", "babies",
+    "previous_cancellations", "previous_bookings_not_canceled",
+    "booking_changes", "days_in_waiting_list", "adr",
+    "required_car_parking_spaces", "total_of_special_requests",
+]
+
+
 def build_decision_tree_pipeline(
     criterion: Literal["gini", "entropy", "log_loss"] = "entropy",
     max_depth: int = 10,
@@ -399,20 +470,42 @@ def build_random_forest_pipeline(
         )),
     ])
 
+def _build_ann_model(meta, learning_rate=0.001):
+    """Factory used by SciKeras. `meta["n_features_in_"]` is filled at fit time."""
+    n_features = meta["n_features_in_"]
+    model = models.Sequential([
+        layers.Input(shape=(n_features,), name="i1"),
+        layers.Dense(128, activation="relu", name="h1"),
+        layers.Dense(64, activation="relu", name="h2"),
+        layers.Dense(32, activation="relu", name="h3"),
+        layers.Dense(1, activation="sigmoid", name="o1"),
+    ])
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+        loss="binary_crossentropy",
+        metrics=[PRIMARY_METRIC],
+    )
+    return model
+
+
 def build_ann_pipeline(
-    X_train_transformed
+    epochs: int = 100,
+    batch_size: int = 32,
+    learning_rate: float = 0.001,
 ) -> Pipeline:
     return Pipeline([
-        ("common", CommonPreprocessor()),
         ("specific", ANNPreprocessor()),
         ("encoder", AutoOrdinalEncoder()),
-        ("model", models.Sequential(layers=[
-            layers.Input(shape=(X_train_transformed.shape[1],), name='i1'),
-            layers.Dense(128, activation='relu', name='h1'),
-            layers.Dense(64, activation='relu', name='h2'),
-            layers.Dense(32, activation='relu', name='h3'),
-            layers.Dense(1, activation='sigmoid', name='o1')
-        ])),
+        ("scaler", SelectiveStandardScaler(columns=ANN_NUMERIC_COLUMNS)),
+        ("model", KerasClassifier(
+            model=_build_ann_model,
+            model__learning_rate=learning_rate,
+            epochs=epochs,
+            batch_size=batch_size,
+            fit__validation_split=0.2,
+            verbose=0,
+            random_state=RANDOM_STATE,
+        )),
     ])
 
 MODEL_BUILDERS = {
