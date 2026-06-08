@@ -13,8 +13,9 @@ jobs:
 
       - name: Build and run docker image
         run: |
-          docker compose up --build
-        continue-on-error: false
+          docker compose up --build -d
+          echo "Waiting for FastAPI to be ready..."
+          timeout 120 bash -c 'until curl -sf http://localhost:8000/health; do sleep 3; done'
 
       - name: Create and evaluate models
         run:
