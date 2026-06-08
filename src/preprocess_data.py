@@ -266,6 +266,9 @@ class ANNPreprocessor(BaseEstimator, TransformerMixin):
         X.drop(columns=["reserved_room_type", "assigned_room_type"], inplace=True, errors="ignore")
 
         return X
+    
+    def fit_transform(self, X, y=None):
+        return self
 
 class LGBOrdinalEncoder(BaseEstimator, TransformerMixin):
     """OrdinalEncoder over explicit categorical columns for LightGBM.
