@@ -55,15 +55,17 @@ El sistema está compuesto por dos capas: una capa de lógica de negocio (`src/`
 
 | Script | Responsabilidad |
 |---|---|
-| `main.py` | Crea la aplicación FastAPI y registra los cuatro routers. |
+| `main.py` | Crea la aplicación FastAPI y registra los siguientes routers: |
 | `routers/best_model.py` | `GET /best-model` — sin cuerpo. Ejecuta el pipeline completo (train + predict + evaluate) en una sola llamada delegando en `trainer.train_all()`. Pensado para obtener el mejor modelo sin gestionar el flujo manualmente. |
 | `routers/train.py` | `POST /train` — acepta un payload JSON opcional con `hyperparams` por modelo y delega en `trainer.train_models()`. Los pipelines serializados se guardan en `models/tests/`. |
 | `routers/predict.py` | `POST /predict` — sin cuerpo. Ejecuta inferencia batch de forma asíncrona sobre el dataset completo delegando en `predict.predict_dataset()` y persiste los resultados en `outputs/predictions.json`. |
 | `routers/evaluate.py` | `POST /evaluate` — sin cuerpo. Delega en `evaluator.evaluate_all()`, genera métricas y gráficas, y promueve el mejor modelo a `models/best_model.pkl`. |
+| `routers/health.py` | `GET /health` — implementa el método que permite verificar que el API está "viva" y es capaz de responder a peticiones HTTP. |
 
 ### Flujo de ejecución vía FastAPI
 
 La API expone tres endpoints desacoplados que deben invocarse en orden. `POST /train` carga los datos procesados, ajusta todos los pipelines de modelos y los guarda en `models/tests/`. Después, `POST /evaluate` recarga esos modelos, los puntúa sobre el conjunto de test, guarda las gráficas en `outputs/` y promueve el mejor modelo a `models/best_model.pkl`. Por último, `POST /predict` carga `best_model.pkl`, ejecuta inferencia batch de forma asíncrona sobre el dataset y persiste las predicciones en `outputs/predictions.json`.
+Por último existe un último endpoint `GET /best-model` para ejecutar todo el flujo completo de principio a fin desde un workflow de GitHub Actions, por ejemplo, o cualquier otro disparador externo.
 
 ### Flujo de ejecución vía CLI (`python -m src.trainer`)
 
