@@ -19,5 +19,5 @@ jobs:
 
       - name: Create and evaluate models
         run:
-          curl -X POST http://localhost:8000/create
+          curl -X POST http://localhost:8000/best-model
 
