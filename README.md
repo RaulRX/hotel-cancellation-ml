@@ -1,5 +1,7 @@
 # Proyecto de evaluación de modelos de clasificación binaria
 
+[![Model Evaluation](https://github.com/RaulRX/hotel-cancellation-ml/actions/workflows/model-evaluation.yml/badge.svg)](https://github.com/RaulRX/hotel-cancellation-ml/actions/workflows/model-evaluation.yml)
+
 Repositorio: <https://github.com/RaulRX/hotel-cancellation-ml.git>
 
 ---
